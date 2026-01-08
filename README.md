@@ -53,7 +53,41 @@ Complete offline-first patient management system for homeopathy clinics.
 
 ---
 
-## 🚀 Installation & Setup
+## ⚡ Quick Setup (Automated)
+
+**For a fast automated setup, follow these 3 steps:**
+
+### 1. Create PostgreSQL Database
+```bash
+# Using psql
+psql -U postgres -f setup_database.sql
+
+# Or use pgAdmin: Tools → Query Tool → Open setup_database.sql → Execute
+```
+
+### 2. Run Backend Setup
+```bash
+cd backend
+
+# Windows
+setup.bat
+
+# Linux/Mac
+chmod +x setup.sh && ./setup.sh
+```
+
+### 3. Setup Frontend
+```bash
+cd frontend
+npm install
+# Add logo.png to public/ folder
+```
+
+**📖 For detailed setup instructions, see [SETUP_GUIDE.md](./SETUP_GUIDE.md)**
+
+---
+
+## 🔧 Manual Installation (Detailed)
 
 ### Step 1: PostgreSQL Setup
 
@@ -198,7 +232,15 @@ Frontend will run on **http://localhost:5173**
 
 ```
 homeopathy-system/
+├── setup_database.sql          # PostgreSQL database setup script
+├── SETUP_GUIDE.md              # Quick automated setup guide
+├── README.md                   # This file
+├── homeopathy_mvp_final.md     # Complete MVP specification
+│
 ├── backend/
+│   ├── setup.bat               # Windows automated setup
+│   ├── setup.sh                # Linux/Mac automated setup
+│   ├── init_db.py              # Database initialization script
 │   ├── app/
 │   │   ├── __init__.py          # Flask app + PostgreSQL config
 │   │   ├── models.py            # SQLAlchemy models (Patient, Visit, Settings)
@@ -230,9 +272,6 @@ homeopathy-system/
 │   │   ├── store/             # Zustand stores
 │   │   └── App.jsx            # Main app component
 │   └── package.json
-│
-├── homeopathy_mvp_final.md    # Complete MVP specification
-└── README.md                  # This file
 ```
 
 ---
