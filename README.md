@@ -2,7 +2,7 @@
 
 Complete offline-first patient management system for homeopathy clinics.
 
-## 📋 Features
+## 📋 Features theu
 
 - **Patient Management** - Complete CRUD operations with search and sorting
 - **Visit Tracking** - Full medical history with editable records
