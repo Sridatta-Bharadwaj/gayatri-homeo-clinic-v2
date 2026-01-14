@@ -22,7 +22,7 @@ export function Header() {
                         <div className="h-10 w-10 bg-primary rounded-full flex items-center justify-center text-white text-sm font-bold">
                             GH
                         </div>
-                        <h1 className="text-xl font-semibold">Gayatri Homeo Clinic</h1>
+                        <h1 className="text-xl font-semibold">Gayatri Homoeo Clinic</h1>
                     </Link>
 
                     {/* Navigation - only show when logged in */}
