@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify
+from flask_login import login_required
 from app.models import db, Patient, Visit
 from datetime import datetime, timedelta
 
 bp = Blueprint('analytics', __name__, url_prefix='/api/analytics')
 
 @bp.route('/dashboard', methods=['GET'])
+@login_required
 def get_dashboard():
     """Get dashboard analytics"""
     try:

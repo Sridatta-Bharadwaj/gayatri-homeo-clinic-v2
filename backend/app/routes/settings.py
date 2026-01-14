@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_login import login_required
 from app.models import db, Settings
 from werkzeug.utils import secure_filename
 import os
@@ -12,6 +13,7 @@ def allowed_file(filename):
 
 
 @bp.route('', methods=['GET'])
+@login_required
 def get_settings():
     """Get all settings as key-value object"""
     try:
@@ -23,6 +25,7 @@ def get_settings():
 
 
 @bp.route('/<string:key>', methods=['PUT'])
+@login_required
 def update_setting(key):
     """Update single setting"""
     try:
@@ -44,6 +47,7 @@ def update_setting(key):
 
 
 @bp.route('/letterhead', methods=['POST'])
+@login_required
 def upload_letterhead():
     """Upload letterhead image"""
     try:

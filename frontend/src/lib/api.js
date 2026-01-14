@@ -2,8 +2,23 @@ import axios from 'axios';
 
 const api = axios.create({
     baseURL: 'http://localhost:5000/api',
-    headers: { 'Content-Type': 'application/json' }
+    headers: { 'Content-Type': 'application/json' },
+    withCredentials: true  // Enable session cookies
 });
+
+// Response interceptor for handling 401 errors
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            // Redirect to login on unauthorized (except for auth endpoints)
+            if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/setup')) {
+                window.location.href = '/login';
+            }
+        }
+        return Promise.reject(error);
+    }
+);
 
 // Patients
 export const getPatients = (search = '', sortBy = 'name', order = 'asc') =>
@@ -51,5 +66,25 @@ export const uploadLetterhead = (file) => {
         headers: { 'Content-Type': 'multipart/form-data' }
     });
 };
+
+// Patient Access Control
+export const getPatientAccess = (patientId) => api.get(`/patients/${patientId}/access`);
+
+export const sharePatientAccess = (patientId, userIds, comment) =>
+    api.post(`/patients/${patientId}/access`, { user_ids: userIds, comment });
+
+export const revokePatientAccess = (patientId, userId) =>
+    api.delete(`/patients/${patientId}/access/${userId}`);
+
+// User Management
+export const getUsers = () => api.get('/users');
+
+export const getDoctors = () => api.get('/users/doctors');
+
+export const createUser = (data) => api.post('/users', data);
+
+export const updateUser = (id, data) => api.put(`/users/${id}`, data);
+
+export const deleteUser = (id) => api.delete(`/users/${id}`);
 
 export default api;

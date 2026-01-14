@@ -1,4 +1,5 @@
 from flask import Blueprint, request, send_file, jsonify
+from flask_login import login_required
 from app.models import db, Patient, Visit, Settings
 from app.utils.pdf_generator import generate_prescription_pdf, generate_certificate_pdf, generate_patient_report_pdf
 
@@ -11,6 +12,7 @@ def get_settings_dict():
 
 
 @bp.route('/prescription/<int:visit_id>', methods=['POST'])
+@login_required
 def generate_prescription(visit_id):
     """Generate prescription PDF"""
     try:
@@ -31,6 +33,7 @@ def generate_prescription(visit_id):
 
 
 @bp.route('/certificate', methods=['POST'])
+@login_required
 def generate_certificate():
     """Generate medical certificate PDF"""
     try:
@@ -63,6 +66,7 @@ def generate_certificate():
 
 
 @bp.route('/patient/<int:patient_id>', methods=['POST'])
+@login_required
 def generate_patient_report(patient_id):
     """Generate patient visit history report PDF"""
     try:

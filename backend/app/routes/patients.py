@@ -1,18 +1,22 @@
 from flask import Blueprint, request, jsonify
-from app.models import db, Patient, Visit
+from flask_login import login_required, current_user
+from app.models import db, Patient, Visit, PatientAccess, User
+from app.utils.access_control import has_patient_access, get_accessible_patients_query, grant_patient_access, revoke_patient_access, get_patient_accessors
 from datetime import datetime
 
 bp = Blueprint('patients', __name__, url_prefix='/api/patients')
 
 @bp.route('', methods=['GET'])
+@login_required
 def get_patients():
-    """List all patients with optional search and sort"""
+    """List all patients with optional search and sort (only accessible patients)"""
     try:
         search = request.args.get('search', '')
         sort_by = request.args.get('sort_by', 'name')
         order = request.args.get('order', 'asc')
         
-        query = Patient.query
+        # Get only patients accessible to current user
+        query = get_accessible_patients_query()
         
         # Search filter
         if search:
@@ -52,9 +56,14 @@ def get_patients():
 
 
 @bp.route('/<int:id>', methods=['GET'])
+@login_required
 def get_patient(id):
-    """Get single patient with latest visit"""
+    """Get single patient with latest visit (if user has access)"""
     try:
+        # Check if user has access to this patient
+        if not has_patient_access(id):
+            return jsonify({'error': 'Access denied to this patient'}), 403
+        
         patient = Patient.query.get_or_404(id)
         latest_visit = Visit.query.filter_by(patient_id=id).order_by(Visit.visit_date.desc()).first()
         
@@ -67,6 +76,7 @@ def get_patient(id):
 
 
 @bp.route('', methods=['POST'])
+@login_required
 def create_patient():
     """Create new patient with auto-generated patient_id"""
     try:
@@ -102,7 +112,8 @@ def create_patient():
             current_medications=data.get('current_medications'),
             family_history=data.get('family_history'),
             emergency_contact_name=data.get('emergency_contact_name'),
-            emergency_contact_number=data.get('emergency_contact_number')
+            emergency_contact_number=data.get('emergency_contact_number'),
+            created_by=current_user.id  # Set creator to current user
         )
         
         db.session.add(patient)
@@ -115,9 +126,14 @@ def create_patient():
 
 
 @bp.route('/<int:id>', methods=['PUT'])
+@login_required
 def update_patient(id):
-    """Update patient information"""
+    """Update patient information (requires access)"""
     try:
+        # Check if user has access to this patient
+        if not has_patient_access(id):
+            return jsonify({'error': 'Access denied to this patient'}), 403
+        
         patient = Patient.query.get_or_404(id)
         data = request.json
         
@@ -162,15 +178,85 @@ def update_patient(id):
         return jsonify({'error': str(e)}), 500
 
 
-@bp.route('/<int:id>', methods=['DELETE'])
+@bp.route('/<int:id>',methods=['DELETE'])
+@login_required
 def delete_patient(id):
-    """Delete patient (cascades to visits)"""
+    """Delete patient (only creator can delete)"""
     try:
         patient = Patient.query.get_or_404(id)
+        
+        # Only creator can delete
+        if patient.created_by != current_user.id:
+            return jsonify({'error': 'Only the creator can delete this patient'}), 403
+        
         db.session.delete(patient)
         db.session.commit()
         
         return jsonify({'message': 'Patient deleted successfully'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+# Patient Access Management Endpoints
+
+@bp.route('/<int:id>/access', methods=['GET'])
+@login_required
+def get_patient_access(id):
+    """Get list of users who have access to this patient"""
+    try:
+        # Check if user has access to this patient
+        if not has_patient_access(id):
+            return jsonify({'error': 'Access denied to this patient'}), 403
+        
+        access_info = get_patient_accessors(id)
+        if not access_info:
+            return jsonify({'error': 'Patient not found'}), 404
+        
+        return jsonify(access_info), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/<int:id>/access', methods=['POST'])
+@login_required
+def share_patient_access(id):
+    """Share patient access with other doctors"""
+    try:
+        data = request.json
+        user_ids = data.get('user_ids', [])
+        comment = data.get('comment', '')
+        
+        if not user_ids:
+            return jsonify({'error': 'No users specified'}), 400
+        
+        # Grant access
+        created_accesses = grant_patient_access(id, user_ids, comment)
+        
+        return jsonify({
+            'message': f'Access granted to {len(created_accesses)} user(s)',
+            'granted_to': [access.to_dict() for access in created_accesses]
+        }), 201
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 403
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+@bp.route('/<int:id>/access/<int:user_id>', methods=['DELETE'])
+@login_required
+def revoke_patient_access_route(id, user_id):
+    """Revoke a user's access to patient"""
+    try:
+        success = revoke_patient_access(id, user_id)
+        
+        if success:
+            return jsonify({'message': 'Access revoked successfully'}), 200
+        else:
+            return jsonify({'message': 'User did not have access to this patient'}), 200
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 403
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': str(e)}), 500

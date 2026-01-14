@@ -1,10 +1,12 @@
 from flask import Blueprint, request, jsonify
+from flask_login import login_required
 from app.models import db, Visit
 from datetime import datetime
 
 bp = Blueprint('visits', __name__, url_prefix='/api')
 
 @bp.route('/patients/<int:patient_id>/visits', methods=['GET'])
+@login_required
 def get_patient_visits(patient_id):
     """Get all visits for a patient (newest first)"""
     try:
@@ -15,6 +17,7 @@ def get_patient_visits(patient_id):
 
 
 @bp.route('/visits/<int:id>', methods=['GET'])
+@login_required
 def get_visit(id):
     """Get single visit"""
     try:
@@ -25,6 +28,7 @@ def get_visit(id):
 
 
 @bp.route('/patients/<int:patient_id>/visits', methods=['POST'])
+@login_required
 def create_visit(patient_id):
     """Create new visit"""
     try:
@@ -52,6 +56,7 @@ def create_visit(patient_id):
 
 
 @bp.route('/visits/<int:id>', methods=['PUT'])
+@login_required
 def update_visit(id):
     """Update visit (sets last_edited_at)"""
     try:

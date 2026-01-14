@@ -4,8 +4,10 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { getSettings, updateSetting, uploadLetterhead } from '@/lib/api';
 import { useThemeStore } from '@/store/themeStore';
+import useAuthStore from '@/store/authStore';
 import { Moon, Sun, Upload } from 'lucide-react';
 
 export function SettingsPage() {
@@ -178,7 +180,7 @@ export function SettingsPage() {
             </Card>
 
             {/* Theme */}
-            <Card>
+            <Card className="mb-6">
                 <CardHeader>
                     <CardTitle>Appearance</CardTitle>
                 </CardHeader>
@@ -210,6 +212,114 @@ export function SettingsPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Change Password */}
+            <ChangePasswordCard />
         </div>
+    );
+}
+
+function ChangePasswordCard() {
+    const [oldPassword, setOldPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [message, setMessage] = useState('');
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const changePassword = useAuthStore((state) => state.changePassword);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setMessage('');
+        setError('');
+
+        if (newPassword !== confirmPassword) {
+            setError('New passwords do not match');
+            return;
+        }
+
+        if (newPassword.length < 8) {
+            setError('Password must be at least 8 characters');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            await changePassword(oldPassword, newPassword);
+            setMessage('Password changed successfully');
+            setOldPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Failed to change password');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>Change Password</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    {message && (
+                        <Alert>
+                            <AlertDescription>{message}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    {error && (
+                        <Alert variant="destructive">
+                            <AlertDescription>{error}</AlertDescription>
+                        </Alert>
+                    )}
+
+                    <div className="space-y-2">
+                        <Label htmlFor="oldPassword">Current Password</Label>
+                        <Input
+                            id="oldPassword"
+                            type="password"
+                            value={oldPassword}
+                            onChange={(e) => setOldPassword(e.target.value)}
+                            required
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="newPassword">New Password</Label>
+                        <Input
+                            id="newPassword"
+                            type="password"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            placeholder="At least 8 characters"
+                            required
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="confirmPassword">Confirm New Password</Label>
+                        <Input
+                            id="confirmPassword"
+                            type="password"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            required
+                            disabled={loading}
+                        />
+                    </div>
+
+                    <Button type="submit" disabled={loading}>
+                        {loading ? 'Changing...' : 'Change Password'}
+                    </Button>
+                </form>
+            </CardContent>
+        </Card>
     );
 }

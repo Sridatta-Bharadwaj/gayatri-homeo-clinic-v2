@@ -1,7 +1,34 @@
 from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
 
 db = SQLAlchemy()
+
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    password_hash = db.Column(db.String(255), nullable=False)
+    full_name = db.Column(db.String(255), nullable=False)
+    role = db.Column(db.String(20), nullable=False, default='admin')
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'username': self.username,
+            'full_name': self.full_name,
+            'role': self.role,
+            'is_active': self.is_active,
+            'last_login': self.last_login.isoformat() if self.last_login else None
+        }
+    
+    def check_password(self, password):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
 
 class Patient(db.Model):
     __tablename__ = 'patients'
@@ -22,10 +49,14 @@ class Patient(db.Model):
     family_history = db.Column(db.Text)
     emergency_contact_name = db.Column(db.Text)
     emergency_contact_number = db.Column(db.String(20))
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)  # Nullable for migration
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
+    # Relationships
     visits = db.relationship('Visit', backref='patient', lazy=True, cascade='all, delete-orphan')
+    creator = db.relationship('User', foreign_keys=[created_by], backref='created_patients')
+    shared_access = db.relationship('PatientAccess', backref='patient', lazy=True, cascade='all, delete-orphan')
     
     def to_dict(self):
         return {
@@ -99,4 +130,34 @@ class Settings(db.Model):
             'key': self.key,
             'value': self.value,
             'updated_at': self.updated_at.isoformat() if self.updated_at else None
+        }
+
+
+class PatientAccess(db.Model):
+    __tablename__ = 'patient_access'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    patient_id = db.Column(db.Integer, db.ForeignKey('patients.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    granted_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    access_comment = db.Column(db.Text)
+    granted_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    user = db.relationship('User', foreign_keys=[user_id], backref='patient_accesses')
+    granter = db.relationship('User', foreign_keys=[granted_by])
+    
+    # Prevent duplicate access grants
+    __table_args__ = (db.UniqueConstraint('patient_id', 'user_id', name='uq_patient_user_access'),)
+    
+    def to_dict(self):
+        return {
+            'id': self.id,
+            'patient_id': self.patient_id,
+            'user_id': self.user_id,
+            'user_name': self.user.full_name if self.user else None,
+            'granted_by': self.granted_by,
+            'granted_by_name': self.granter.full_name if self.granter else None,
+            'access_comment': self.access_comment,
+            'granted_at': self.granted_at.isoformat() if self.granted_at else None
         }

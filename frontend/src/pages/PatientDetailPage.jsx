@@ -4,13 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { getPatient, generatePatientReport, generatePrescription, deletePatient } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/utils';
-import { ArrowLeft, Edit, FileText, Plus, AlertTriangle, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, FileText, Plus, AlertTriangle, Trash2, Share2 } from 'lucide-react';
+import SharePatientDialog from '@/components/SharePatientDialog';
+import PatientAccessList from '@/components/PatientAccessList';
+import useAuthStore from '@/store/authStore';
 
 export function PatientDetailPage() {
     const { id } = useParams();
     const navigate = useNavigate();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [showShareDialog, setShowShareDialog] = useState(false);
+    const user = useAuthStore((state) => state.user);
+
+    const isCreator = data?.patient?.created_by === user?.id;
+    const isAdmin = user?.role === 'admin';
+    const canShare = isCreator || isAdmin;
 
     useEffect(() => {
         fetchPatientData();
@@ -217,6 +226,38 @@ export function PatientDetailPage() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Access Management Card */}
+            {(canShare || isAdmin) && (
+                <Card className="mb-6">
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
+                            <CardTitle>Access Management</CardTitle>
+                            {canShare && (
+                                <Button onClick={() => setShowShareDialog(true)} size="sm">
+                                    <Share2 className="mr-2 h-4 w-4" />
+                                    Share Access
+                                </Button>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        <PatientAccessList
+                            patientId={id}
+                            isCreator={isCreator}
+                            onAccessRevoked={fetchPatientData}
+                        />
+                    </CardContent>
+                </Card>
+            )}
+
+            {/* Share Patient Dialog */}
+            <SharePatientDialog
+                open={showShareDialog}
+                onOpenChange={setShowShareDialog}
+                patientId={id}
+                onSuccess={fetchPatientData}
+            />
 
             {/* Action Buttons */}
             <div className="flex flex-wrap gap-3">
