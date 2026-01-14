@@ -2,17 +2,27 @@ version: '3.8'
 
 services:
   # PostgreSQL Database
-  db:
+  postgres:
     image: postgres:16-alpine
-    container_name: homeopathy_db
+    container_name: homeopathy_postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: homeopathy_db
       POSTGRES_USER: homeopathy_user
-      POSTGRES_PASSWORD: homeopathy_password
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=1GB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "max_connections=100"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/migrate_and_reset.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
     networks:
@@ -32,26 +42,27 @@ services:
     restart: unless-stopped
     environment:
       FLASK_ENV: production
-      DATABASE_URL: postgresql://homeopathy_user:homeopathy_password@db:5432/homeopathy_db
-      SECRET_KEY: ${SECRET_KEY:-your-secret-key-change-in-production}
+      DATABASE_URL: postgresql://homeopathy_user:${DB_PASSWORD}@postgres:5432/homeopathy_db
+      SECRET_KEY: ${SECRET_KEY}
       FLASK_APP: run.py
     ports:
       - "5000:5000"
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
     networks:
       - homeopathy_network
-    volumes:
-      - ./backend:/app
-      - /app/venv  # Prevent overwriting venv
+    # Uncomment for development with hot reload
+    # volumes:
+    #   - ./backend/app:/app/app
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/api/auth/check-setup"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
-  # Vite Frontend
+  # React Frontend with Nginx
   frontend:
     build:
       context: ./frontend
@@ -61,11 +72,17 @@ services:
     container_name: homeopathy_frontend
     restart: unless-stopped
     ports:
-      - "5173:80"
+      - "80:80"
     depends_on:
       - backend
     networks:
       - homeopathy_network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
 
 networks:
   homeopathy_network:

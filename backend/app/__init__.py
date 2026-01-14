@@ -22,17 +22,28 @@ def create_app():
     os.makedirs(static_path, exist_ok=True)
     
     # Configuration - PostgreSQL Database
-    db_user = os.getenv('DB_USER', 'homeopathy_user')
-    db_password = os.getenv('DB_PASSWORD', 'password')
-    db_host = os.getenv('DB_HOST', 'localhost')
-    db_port = os.getenv('DB_PORT', '5432')
-    db_name = os.getenv('DB_NAME', 'homeopathy_db')
+    # Support Docker-style DATABASE_URL or individual components
+    database_url = os.getenv('DATABASE_URL')
     
-    # URL-encode credentials to handle special characters
-    db_user_encoded = quote_plus(db_user)
-    db_password_encoded = quote_plus(db_password)
-    
-    app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql+psycopg://{db_user_encoded}:{db_password_encoded}@{db_host}:{db_port}/{db_name}'
+    if database_url:
+        # Docker deployment - use DATABASE_URL directly
+        # Replace 'postgresql://' with 'postgresql+psycopg://' for psycopg driver
+        if database_url.startswith('postgresql://'):
+            database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+        app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+    else:
+        # Local development - build URL from components
+        db_user = os.getenv('DB_USER', 'homeopathy_user')
+        db_password = os.getenv('DB_PASSWORD', 'password')
+        db_host = os.getenv('DB_HOST', 'localhost')
+        db_port = os.getenv('DB_PORT', '5432')
+        db_name = os.getenv('DB_NAME', 'homeopathy_db')
+        
+        # URL-encode credentials to handle special characters
+        db_user_encoded = quote_plus(db_user)
+        db_password_encoded = quote_plus(db_password)
+        
+        app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql+psycopg://{db_user_encoded}:{db_password_encoded}@{db_host}:{db_port}/{db_name}'
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload
     
@@ -42,8 +53,13 @@ def create_app():
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutes
     
-    # CORS setup for frontend
-    CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": "http://localhost:5173"}})
+    # CORS setup for frontend - support both development and production
+    allowed_origins = [
+        "http://localhost:5173",  # Vite dev server
+        "http://localhost",       # Docker production frontend
+        "http://localhost:80"     # Docker production frontend (explicit port)
+    ]
+    CORS(app, supports_credentials=True, resources={r"/api/*": {"origins": allowed_origins}})
     
     # Initialize database
     db.init_app(app)
@@ -82,6 +98,8 @@ def create_app():
     
     # Register blueprints
     from app.routes import auth, patients, visits, analytics, reports, settings, users
+    from app.routes.health import health_bp
+    
     app.register_blueprint(auth.bp)
     app.register_blueprint(patients.bp)
     app.register_blueprint(visits.bp)
@@ -89,5 +107,6 @@ def create_app():
     app.register_blueprint(reports.bp)
     app.register_blueprint(settings.bp)
     app.register_blueprint(users.bp)
+    app.register_blueprint(health_bp)
     
     return app
