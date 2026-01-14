@@ -88,13 +88,16 @@ def create_app():
             ('letterhead_path', '')
         ]
         
-        for key, value in default_settings:
-            existing = Settings.query.filter_by(key=key).first()
-            if not existing:
-                setting = Settings(key=key, value=value)
-                db.session.add(setting)
-        
-        db.session.commit()
+        try:
+            for key, value in default_settings:
+                existing = Settings.query.filter_by(key=key).first()
+                if not existing:
+                    setting = Settings(key=key, value=value)
+                    db.session.add(setting)
+            db.session.commit()
+        except Exception as e:
+            db.session.rollback()
+            print(f"Settings initialization error: {e}")
     
     # Register blueprints
     from app.routes import auth, patients, visits, analytics, reports, settings, users

@@ -114,6 +114,9 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Clear existing settings on initialization to prevent duplicate key errors
+TRUNCATE TABLE settings CASCADE;
+
 CREATE INDEX IF NOT EXISTS idx_settings_key ON settings(key);
 
 COMMENT ON TABLE settings IS 'Application settings and configuration';
